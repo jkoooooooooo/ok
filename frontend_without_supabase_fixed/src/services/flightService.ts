@@ -1,63 +1,50 @@
+import type { Flight } from "@/types";
+
+const STORAGE_KEY = "flights";
 
 export const flightService = {
-  // Get all flights
+  // Get all flights (from localStorage)
   async getAllFlights(): Promise<Flight[]> {
-      .from('flights')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('Error fetching flights:', error)
-      throw new Error('Failed to fetch flights')
-    }
-
-    return data || []
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const flights: Flight[] = stored ? JSON.parse(stored) : [];
+    return flights;
   },
 
-  // Search flights by cities
+  // Save all flights (overwrite existing data)
+  async saveFlights(flights: Flight[]): Promise<void> {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(flights));
+  },
+
+  // Search flights
   async searchFlights(fromCity: string, toCity: string): Promise<Flight[]> {
-      .from('flights')
-      .select('*')
-      .ilike('from_city', `%${fromCity}%`)
-      .ilike('to_city', `%${toCity}%`)
-      .gt('seats_available', 0)
-      .order('price', { ascending: true })
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const flights: Flight[] = stored ? JSON.parse(stored) : [];
 
-    if (error) {
-      console.error('Error searching flights:', error)
-      throw new Error('Failed to search flights')
-    }
-
-    return data || []
+    return flights.filter(
+      (flight) =>
+        flight.from_city.toLowerCase().includes(fromCity.toLowerCase()) &&
+        flight.to_city.toLowerCase().includes(toCity.toLowerCase()) &&
+        flight.seats_available > 0
+    );
   },
 
   // Get flight by ID
   async getFlightById(id: string): Promise<Flight | null> {
-      .from('flights')
-      .select('*')
-      .eq('id', id)
-      .single()
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const flights: Flight[] = stored ? JSON.parse(stored) : [];
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null // Flight not found
-      }
-      console.error('Error fetching flight:', error)
-      throw new Error('Failed to fetch flight')
-    }
-
-    return data
+    return flights.find((flight) => flight.id === id) || null;
   },
 
-  // Update flight seats (used when booking)
+  // Update flight seats
   async updateFlightSeats(flightId: string, newSeatsAvailable: number): Promise<void> {
-      .from('flights')
-      .update({ seats_available: newSeatsAvailable })
-      .eq('id', flightId)
+    const stored = localStorage.getItem(STORAGE_KEY);
+    let flights: Flight[] = stored ? JSON.parse(stored) : [];
 
-    if (error) {
-      console.error('Error updating flight seats:', error)
-      throw new Error('Failed to update flight seats')
-    }
+    flights = flights.map((flight) =>
+      flight.id === flightId ? { ...flight, seats_available: newSeatsAvailable } : flight
+    );
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(flights));
   }
-}
+};
