@@ -1,55 +1,42 @@
+import { Flight } from "@/types/flight";
 
-export const adminService = {
-  // Authenticate admin user
-  async authenticateAdmin(username: string, password: string): Promise<AdminUser | null> {
-    try {
-      // Note: In a real application, you should hash the password before comparing
-      // For demo purposes, we'll compare plain text (not recommended for production)
-        .from('admin_users')
-        .select('*')
-        .eq('username', username)
-        .single()
+const STORAGE_KEY = "flights";
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          return null // User not found
-        }
-        console.error('Error authenticating admin:', error)
-        throw new Error('Authentication failed')
-      }
+// Helper to load all flights
+function loadFlights(): Flight[] {
+  const data = localStorage.getItem(STORAGE_KEY);
+  return data ? JSON.parse(data) : [];
+}
 
-      // In production, you should use proper password hashing (bcrypt, etc.)
-      // For demo purposes, assuming password is stored as plain text
-      if (data.password_hash === password) {
-        return data
-      }
+// Helper to save all flights
+function saveFlights(flights: Flight[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(flights));
+}
 
-      return null
-    } catch (error: any) {
-      // Handle the case where no rows are returned (user not found)
-      if (error.code === 'PGRST116' || error.message?.includes('no rows returned')) {
-        return null
-      }
-      console.error('Error authenticating admin:', error)
-      throw new Error('Authentication failed')
-    }
-  },
+// Add a flight locally
+export async function addFlight(flight: Flight): Promise<boolean> {
+  try {
+    const flights = loadFlights();
+    flights.push(flight);
+    saveFlights(flights);
+    return true;
+  } catch (error: any) {
+    const message = typeof error?.message === 'string' ? error.message : String(error);
+    console.error("Add flight error:", message);
+    return false;
+  }
+}
 
-  // Create admin user (for setup)
-  async createAdmin(username: string, password: string): Promise<AdminUser> {
-      .from('admin_users')
-      .insert([{
-        username,
-        password_hash: password // In production, hash this password
-      }])
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Error creating admin:', error)
-      throw new Error('Failed to create admin user')
-    }
-
-    return data
+// Delete a flight locally by ID
+export async function deleteFlight(flightId: string): Promise<boolean> {
+  try {
+    let flights = loadFlights();
+    flights = flights.filter(f => f.id !== flightId);
+    saveFlights(flights);
+    return true;
+  } catch (error: any) {
+    const message = typeof error?.message === 'string' ? error.message : String(error);
+    console.error("Delete flight error:", message);
+    return false;
   }
 }
