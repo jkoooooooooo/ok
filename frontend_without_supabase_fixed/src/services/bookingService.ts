@@ -1,76 +1,64 @@
+import { Booking } from "@/types/booking";
 
-export const bookingService = {
-  // Create a new booking
-  async createBooking(bookingData: Omit<Booking, 'id' | 'created_at' | 'updated_at'>): Promise<Booking> {
-      .from('bookings')
-      .insert([bookingData])
-      .select()
-      .single()
+const STORAGE_KEY = "bookings";
 
-    if (error) {
-      console.error('Error creating booking:', error)
-      throw new Error('Failed to create booking')
+// Load all bookings from localStorage
+function loadBookings(): Booking[] {
+  const data = localStorage.getItem(STORAGE_KEY);
+  return data ? JSON.parse(data) : [];
+}
+
+// Save all bookings to localStorage
+function saveBookings(bookings: Booking[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(bookings));
+}
+
+// Add a booking
+export async function bookFlight(booking: Booking): Promise<boolean> {
+  try {
+    const bookings = loadBookings();
+
+    // Optional: prevent duplicate booking by flightId + email
+    const exists = bookings.find(
+      b => b.flightId === booking.flightId && b.email === booking.email
+    );
+
+    if (exists) {
+      throw new Error("Duplicate booking");
     }
 
-    return data
-  },
+    bookings.push(booking);
+    saveBookings(bookings);
+    return true;
+  } catch (error: any) {
+    const message = typeof error?.message === "string" ? error.message : String(error);
+    console.error("Booking failed:", message);
+    return false;
+  }
+}
 
-  // Get bookings by email
-  async getBookingsByEmail(email: string): Promise<Booking[]> {
-      .from('bookings')
-      .select('*')
-      .eq('email', email)
-      .order('booking_date', { ascending: false })
+// Get all bookings
+export async function getMyBookings(email: string): Promise<Booking[]> {
+  try {
+    const bookings = loadBookings();
+    return bookings.filter(b => b.email === email);
+  } catch (error: any) {
+    const message = typeof error?.message === "string" ? error.message : String(error);
+    console.error("Failed to fetch bookings:", message);
+    return [];
+  }
+}
 
-    if (error) {
-      console.error('Error fetching bookings:', error)
-      throw new Error('Failed to fetch bookings')
-    }
-
-    return data || []
-  },
-
-  // Get all bookings (admin)
-  async getAllBookings(): Promise<Booking[]> {
-      .from('bookings')
-      .select('*')
-      .order('booking_date', { ascending: false })
-
-    if (error) {
-      console.error('Error fetching all bookings:', error)
-      throw new Error('Failed to fetch bookings')
-    }
-
-    return data || []
-  },
-
-  // Update booking status
-  async updateBookingStatus(bookingId: string, status: 'confirmed' | 'pending' | 'cancelled'): Promise<void> {
-      .from('bookings')
-      .update({ status })
-      .eq('id', bookingId)
-
-    if (error) {
-      console.error('Error updating booking status:', error)
-      throw new Error('Failed to update booking status')
-    }
-  },
-
-  // Get booking by ID
-  async getBookingById(id: string): Promise<Booking | null> {
-      .from('bookings')
-      .select('*')
-      .eq('id', id)
-      .single()
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null // Booking not found
-      }
-      console.error('Error fetching booking:', error)
-      throw new Error('Failed to fetch booking')
-    }
-
-    return data
+// Cancel a booking
+export async function cancelBooking(bookingId: string): Promise<boolean> {
+  try {
+    let bookings = loadBookings();
+    bookings = bookings.filter(b => b.id !== bookingId);
+    saveBookings(bookings);
+    return true;
+  } catch (error: any) {
+    const message = typeof error?.message === "string" ? error.message : String(error);
+    console.error("Failed to cancel booking:", message);
+    return false;
   }
 }
