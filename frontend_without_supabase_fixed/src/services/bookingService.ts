@@ -1,64 +1,97 @@
 import { Booking } from "@/types/booking";
+import { v4 as uuidv4 } from "uuid";
 
 const STORAGE_KEY = "bookings";
 
-// Load all bookings from localStorage
+// Load all bookings
 function loadBookings(): Booking[] {
-  const data = localStorage.getItem(STORAGE_KEY);
-  return data ? JSON.parse(data) : [];
+  const raw = localStorage.getItem(STORAGE_KEY);
+  return raw ? JSON.parse(raw) : [];
 }
 
-// Save all bookings to localStorage
+// Save all bookings
 function saveBookings(bookings: Booking[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(bookings));
 }
 
-// Add a booking
-export async function bookFlight(booking: Booking): Promise<boolean> {
-  try {
-    const bookings = loadBookings();
+export const bookingService = {
+  // Create a new booking
+  async createBooking(
+    bookingData: Omit<Booking, "id" | "created_at" | "updated_at">
+  ): Promise<Booking> {
+    try {
+      const newBooking: Booking = {
+        ...bookingData,
+        id: uuidv4(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
 
-    // Optional: prevent duplicate booking by flightId + email
-    const exists = bookings.find(
-      b => b.flightId === booking.flightId && b.email === booking.email
-    );
+      const bookings = loadBookings();
+      bookings.push(newBooking);
+      saveBookings(bookings);
 
-    if (exists) {
-      throw new Error("Duplicate booking");
+      return newBooking;
+    } catch (error: any) {
+      const message = typeof error?.message === "string" ? error.message : String(error);
+      console.error("Error creating booking:", message);
+      throw new Error("Failed to create booking");
     }
+  },
 
-    bookings.push(booking);
-    saveBookings(bookings);
-    return true;
-  } catch (error: any) {
-    const message = typeof error?.message === "string" ? error.message : String(error);
-    console.error("Booking failed:", message);
-    return false;
-  }
-}
+  // Get bookings by email
+  async getBookingsByEmail(email: string): Promise<Booking[]> {
+    try {
+      const bookings = loadBookings();
+      return bookings
+        .filter((b) => b.email === email)
+        .sort((a, b) => b.booking_date.localeCompare(a.booking_date));
+    } catch (error: any) {
+      const message = typeof error?.message === "string" ? error.message : String(error);
+      console.error("Error fetching bookings:", message);
+      throw new Error("Failed to fetch bookings");
+    }
+  },
 
-// Get all bookings
-export async function getMyBookings(email: string): Promise<Booking[]> {
-  try {
-    const bookings = loadBookings();
-    return bookings.filter(b => b.email === email);
-  } catch (error: any) {
-    const message = typeof error?.message === "string" ? error.message : String(error);
-    console.error("Failed to fetch bookings:", message);
-    return [];
-  }
-}
+  // Get all bookings (admin)
+  async getAllBookings(): Promise<Booking[]> {
+    try {
+      const bookings = loadBookings();
+      return bookings.sort((a, b) => b.booking_date.localeCompare(a.booking_date));
+    } catch (error: any) {
+      const message = typeof error?.message === "string" ? error.message : String(error);
+      console.error("Error fetching all bookings:", message);
+      throw new Error("Failed to fetch bookings");
+    }
+  },
 
-// Cancel a booking
-export async function cancelBooking(bookingId: string): Promise<boolean> {
-  try {
-    let bookings = loadBookings();
-    bookings = bookings.filter(b => b.id !== bookingId);
-    saveBookings(bookings);
-    return true;
-  } catch (error: any) {
-    const message = typeof error?.message === "string" ? error.message : String(error);
-    console.error("Failed to cancel booking:", message);
-    return false;
-  }
-}
+  // Update booking status
+  async updateBookingStatus(
+    bookingId: string,
+    status: "confirmed" | "pending" | "cancelled"
+  ): Promise<void> {
+    try {
+      const bookings = loadBookings();
+      const updated = bookings.map((b) =>
+        b.id === bookingId ? { ...b, status, updated_at: new Date().toISOString() } : b
+      );
+      saveBookings(updated);
+    } catch (error: any) {
+      const message = typeof error?.message === "string" ? error.message : String(error);
+      console.error("Error updating booking status:", message);
+      throw new Error("Failed to update booking status");
+    }
+  },
+
+  // Get booking by ID
+  async getBookingById(id: string): Promise<Booking | null> {
+    try {
+      const bookings = loadBookings();
+      return bookings.find((b) => b.id === id) || null;
+    } catch (error: any) {
+      const message = typeof error?.message === "string" ? error.message : String(error);
+      console.error("Error fetching booking:", message);
+      throw new Error("Failed to fetch booking");
+    }
+  },
+};
